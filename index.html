@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>部隊編成シミュレーター - Buff Master</title>
+    <title>熊狩行動編成シミュレーター</title>
     <style>
         :root {
             --bg: #0b0d0e; --card: #1c1f23; --input-bg: #2a2e33;
             --text-main: #e9ecef; --text-sub: #adb5bd;
-            --accent: #3793ff; --danger: #ff5252; --success: #00b894; --border: #444;
+            --accent: #ff9f43; /* 熊狩をイメージした暖色アクセント */
+            --danger: #ff5252; --success: #00b894; --border: #444;
         }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 20px; }
         .main-container { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
@@ -27,13 +28,14 @@
         .res-val { font-weight: 600; font-family: monospace; font-size: 0.9rem; }
         .rem-val { color: var(--danger); font-weight: bold; }
         .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: var(--accent); margin: 0; font-size: 1.8rem; text-shadow: 0 0 10px rgba(255,159,67,0.3); }
         .global-actions { text-align: center; margin-top: 30px; }
         .clear-btn { background: none; border: 1px solid #444; color: #777; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="header"><h1>部隊編成シミュレーター</h1></div>
+<div class="header"><h1>🐻 熊狩行動編成シミュレーター</h1></div>
 
 <div class="main-container" id="cards-wrapper">
     </div>
@@ -47,30 +49,53 @@
     const cyrilOpts = [0, 3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000, 27000, 30000];
     const managerOpts = [0, 2500, 3750];
     const buffOpts = [0, 10, 20];
+    const slotOpts = [
+        {val: 6, label: "5部隊 + スペシャル(計6)"},
+        {val: 7, label: "6部隊 + スペシャル(計7)"}
+    ];
 
-    // HTML生成
     const wrapper = document.getElementById('cards-wrapper');
     for (let i = 0; i < 3; i++) {
         wrapper.innerHTML += `
         <div class="card" id="char-${i}">
             <input type="text" class="char-name-input" placeholder="キャラ名 ${i+1}" oninput="updateAll(${i})">
+            
             <div class="group-label">基本設定</div>
-            <div class="form-group"><label>出征容量(基礎)</label><input type="text" class="baseCap" placeholder="0" oninput="handleInput(${i}, this)"></div>
+            <div class="form-group">
+                <label>出征部隊数 (スペシャル込)</label>
+                <select class="slots" onchange="updateAll(${i})"></select>
+            </div>
+            <div class="form-group">
+                <label>出征容量(基礎)</label>
+                <input type="text" class="baseCap" placeholder="0" oninput="handleInput(${i}, this)">
+            </div>
+
             <div class="group-label">兵士数</div>
             <div class="form-group"><label>赤弓兵 (上)</label><input type="text" class="redArch" placeholder="0" oninput="handleInput(${i}, this)"></div>
             <div class="form-group"><label>弓兵 (下)</label><input type="text" class="arch" placeholder="0" oninput="handleInput(${i}, this)"></div>
+
             <div class="group-label">補正（固定値）</div>
             <div class="form-group"><select class="monkey" onchange="updateAll(${i})"></select></div>
             <div class="form-group"><select class="cyril" onchange="updateAll(${i})"></select></div>
             <div class="form-group"><select class="manager" onchange="updateAll(${i})"></select></div>
+
             <div class="group-label">補正（倍率）</div>
             <div class="form-group"><select class="buff" onchange="updateAll(${i})"></select></div>
+
             <div class="results">
                 <div class="res-row"><span class="res-label">最終容量</span><span class="res-val totalCap">0</span></div>
                 <div class="res-row"><span class="res-label">弓兵合計</span><span class="res-val totalArch">0</span></div>
                 <div class="plan-container">
-                    <div class="plan-box"><div class="plan-title">7部隊平均</div><div class="avgPlanBody"></div><div class="res-row"><span class="res-val rem-val avgRem">0</span></div></div>
-                    <div class="plan-box" style="border-color:var(--accent)"><div class="plan-title">最適化配分</div><div class="optPlanBody"></div><div class="res-row"><span class="res-val rem-val optRem" style="color:var(--success)">0</span></div></div>
+                    <div class="plan-box">
+                        <div class="plan-title">均等プラン</div>
+                        <div class="avgPlanBody"></div>
+                        <div class="res-row"><span class="res-val rem-val avgRem">0</span></div>
+                    </div>
+                    <div class="plan-box" style="border-color:var(--accent)">
+                        <div class="plan-title">最適化配分</div>
+                        <div class="optPlanBody"></div>
+                        <div class="res-row"><span class="res-val rem-val optRem" style="color:var(--success)">0</span></div>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -84,11 +109,13 @@
     function initSelectors() {
         for (let i = 0; i < 3; i++) {
             const root = document.querySelector(`#char-${i}`);
+            slotOpts.forEach(o => root.querySelector('.slots').add(new Option(o.label, o.val)));
             monkeyOpts.forEach(v => root.querySelector('.monkey').add(new Option(v === 0 ? "雪猿: なし" : `雪猿: ${v.toLocaleString()}`, v)));
             cyrilOpts.forEach(v => root.querySelector('.cyril').add(new Option(v === 0 ? "シリル: なし" : `シリル: ${v.toLocaleString()}`, v)));
             managerOpts.forEach(v => root.querySelector('.manager').add(new Option(v === 0 ? "戦略部長: なし" : `戦略部長: ${v.toLocaleString()}`, v)));
             buffOpts.forEach(v => root.querySelector('.buff').add(new Option(v === 0 ? "容量バフ: なし" : `容量バフ: ${v}%`, v)));
             
+            root.querySelector('.slots').value = 7;
             root.querySelector('.monkey').value = 9000;
             root.querySelector('.cyril').value = 27000;
         }
@@ -108,6 +135,7 @@
     }
 
     function updateAll(index) {
+        const slots = parseInt(getVal(index, 'slots'));
         const baseCap = parseInt(getVal(index, 'baseCap')) || 0;
         const redArch = parseInt(getVal(index, 'redArch')) || 0;
         const arch = parseInt(getVal(index, 'arch')) || 0;
@@ -116,34 +144,32 @@
         const manager = parseInt(getVal(index, 'manager'));
         const buffPct = parseInt(getVal(index, 'buff'));
 
-        // 容量計算ロジック
-        const preBuffCap = baseCap + monkey + cyril + manager;
-        const totalCap = Math.floor(preBuffCap * (1 + buffPct / 100));
+        const totalCap = Math.floor((baseCap + monkey + cyril + manager) * (1 + buffPct / 100));
         const totalArchers = redArch + arch;
 
         document.querySelector(`#char-${index} .totalCap`).textContent = totalCap.toLocaleString();
         document.querySelector(`#char-${index} .totalArch`).textContent = totalArchers.toLocaleString();
 
         if (totalCap > 0 && totalArchers > 0) {
-            calculateAvg(index, totalArchers, totalCap);
-            calculateOpt(index, totalArchers, totalCap);
+            calculateAvg(index, totalArchers, totalCap, slots);
+            calculateOpt(index, totalArchers, totalCap, slots);
         }
         saveAllData();
     }
 
-    function calculateAvg(idx, tArch, tCap) {
-        const archGroup = Math.floor(tArch / 7);
+    function calculateAvg(idx, tArch, tCap, slots) {
+        const archGroup = Math.floor(tArch / slots);
         let ratio = Math.floor((archGroup / tCap) * 100) / 100;
         ratio = Math.min(ratio, 0.98);
-        const rem = tArch - (tCap * ratio * 7);
-        document.querySelector(`#char-${idx} .avgPlanBody`).innerHTML = `割合 <b>${ratio.toFixed(2)}</b><br>× 7部隊`;
-        document.querySelector(`#char-${idx} .avgRem`).textContent = Math.round(rem).toLocaleString();
+        const rem = tArch - (tCap * ratio * slots);
+        document.querySelector(`#char-${idx} .avgPlanBody`).innerHTML = `割合 <b>${ratio.toFixed(2)}</b><br>× ${slots}部隊`;
+        document.querySelector(`#char(`#char-${idx} .avgRem`).textContent = Math.round(rem).toLocaleString();
     }
 
-    function calculateOpt(idx, tArch, tCap) {
+    function calculateOpt(idx, tArch, tCap, slots) {
         let best = { rem: Infinity, r1: 0, n1: 0, r2: 0, n2: 0 };
-        for (let n1 = 0; n1 <= 7; n1++) {
-            let n2 = 7 - n1;
+        for (let n1 = 0; n1 <= slots; n1++) {
+            let n2 = slots - n1;
             for (let r1 = 0; r1 <= 0.981; r1 += 0.01) {
                 let fr1 = Math.floor(r1 * 100) / 100;
                 for (let r2 = 0; r2 <= 0.981; r2 += 0.01) {
@@ -165,6 +191,7 @@
         for (let i = 0; i < 3; i++) {
             allData.push({
                 name: document.querySelector(`#char-${i} .char-name-input`).value,
+                slots: getVal(i, 'slots'),
                 baseCap: getVal(i, 'baseCap'),
                 redArch: getVal(i, 'redArch'),
                 arch: getVal(i, 'arch'),
@@ -174,16 +201,17 @@
                 buff: getVal(i, 'buff')
             });
         }
-        localStorage.setItem('multiFormationBuffData', JSON.stringify(allData));
+        localStorage.setItem('bearHuntData', JSON.stringify(allData));
     }
 
     function loadAllData() {
-        const saved = localStorage.getItem('multiFormationBuffData');
+        const saved = localStorage.getItem('bearHuntData');
         if (saved) {
             const data = JSON.parse(saved);
             data.forEach((d, i) => {
                 if(!document.querySelector(`#char-${i}`)) return;
                 document.querySelector(`#char-${i} .char-name-input`).value = d.name || "";
+                document.querySelector(`#char-${i} .slots`).value = d.slots || 7;
                 document.querySelector(`#char-${i} .baseCap`).value = d.baseCap ? Number(d.baseCap).toLocaleString() : "";
                 document.querySelector(`#char-${i} .redArch`).value = d.redArch ? Number(d.redArch).toLocaleString() : "";
                 document.querySelector(`#char-${i} .arch`).value = d.arch ? Number(d.arch).toLocaleString() : "";
@@ -198,7 +226,7 @@
 
     function clearAllData() {
         if(confirm("全データを消去しますか？")) {
-            localStorage.removeItem('multiFormationBuffData');
+            localStorage.removeItem('bearHuntData');
             location.reload();
         }
     }
