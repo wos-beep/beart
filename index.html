@@ -35,9 +35,7 @@
 <body>
 
 <div class="header"><h1>🐻 熊狩行動編成シミュレーター</h1></div>
-
 <div class="main-container" id="cards-wrapper"></div>
-
 <div class="global-actions">
     <button class="clear-btn" onclick="clearAllData()">全データをリセット</button>
 </div>
@@ -52,7 +50,6 @@
         {val: 7, label: "6部隊 + スペシャル(計7)"}
     ];
 
-    // カードの生成
     function createCards() {
         const wrapper = document.getElementById('cards-wrapper');
         let html = '';
@@ -76,16 +73,8 @@
                     <div class="res-row"><span class="res-label">最終容量</span><span class="res-val totalCap">0</span></div>
                     <div class="res-row"><span class="res-label">弓兵合計</span><span class="res-val totalArch">0</span></div>
                     <div class="plan-container">
-                        <div class="plan-box">
-                            <div class="plan-title">均等プラン</div>
-                            <div class="avgPlanBody"></div>
-                            <div class="res-row"><span class="res-val rem-val avgRem">0</span></div>
-                        </div>
-                        <div class="plan-box" style="border-color:var(--accent)">
-                            <div class="plan-title">最適化配分</div>
-                            <div class="optPlanBody"></div>
-                            <div class="res-row"><span class="res-val rem-val optRem" style="color:var(--success)">0</span></div>
-                        </div>
+                        <div class="plan-box"><div class="plan-title">均等プラン</div><div class="avgPlanBody"></div><div class="res-row"><span class="res-val rem-val avgRem">0</span></div></div>
+                        <div class="plan-box" style="border-color:var(--accent)"><div class="plan-title">最適化配分</div><div class="optPlanBody"></div><div class="res-row"><span class="res-val rem-val optRem" style="color:var(--success)">0</span></div></div>
                     </div>
                 </div>
             </div>`;
@@ -107,7 +96,6 @@
             cyrilOpts.forEach(v => root.querySelector('.cyril').add(new Option(v === 0 ? "シリル: なし" : `シリル: ${v.toLocaleString()}`, v)));
             managerOpts.forEach(v => root.querySelector('.manager').add(new Option(v === 0 ? "戦略部長: なし" : `戦略部長: ${v.toLocaleString()}`, v)));
             buffOpts.forEach(v => root.querySelector('.buff').add(new Option(v === 0 ? "容量バフ: なし" : `容量バフ: ${v}%`, v)));
-            
             root.querySelector('.slots').value = 7;
             root.querySelector('.monkey').value = 9000;
             root.querySelector('.cyril').value = 27000;
@@ -159,6 +147,7 @@
         document.querySelector(`#char-${idx} .avgRem`).textContent = Math.round(rem).toLocaleString();
     }
 
+    // --- ここを修正しました ---
     function calculateOpt(idx, tArch, tCap, slots) {
         let best = { rem: Infinity, r1: 0, n1: 0, r2: 0, n2: 0 };
         for (let n1 = 0; n1 <= slots; n1++) {
@@ -175,7 +164,14 @@
                 }
             }
         }
-        document.querySelector(`#char-${idx} .optPlanBody`).innerHTML = `<b>${best.r1.toFixed(2)}</b> × ${best.n1}<br><b>${best.r2.toFixed(2)}</b> × ${best.n2}`;
+        let html = "";
+        if (best.r1 === best.r2) {
+            html = `<b>${best.r1.toFixed(2)}</b> × ${slots}部隊`;
+        } else {
+            if (best.n1 > 0) html += `<b>${best.r1.toFixed(2)}</b> × ${best.n1}部隊<br>`;
+            if (best.n2 > 0) html += `<b>${best.r2.toFixed(2)}</b> × ${best.n2}部隊`;
+        }
+        document.querySelector(`#char-${idx} .optPlanBody`).innerHTML = html || "---";
         document.querySelector(`#char-${idx} .optRem`).textContent = Math.round(best.rem).toLocaleString();
     }
 
@@ -196,11 +192,11 @@
                 buff: card.querySelector('.buff').value
             });
         }
-        localStorage.setItem('bearHuntDataFinal', JSON.stringify(allData));
+        localStorage.setItem('bearHuntDataFinalV2', JSON.stringify(allData));
     }
 
     function loadAllData() {
-        const saved = localStorage.getItem('bearHuntDataFinal');
+        const saved = localStorage.getItem('bearHuntDataFinalV2');
         if (saved) {
             const data = JSON.parse(saved);
             data.forEach((d, i) => {
@@ -222,7 +218,7 @@
 
     function clearAllData() {
         if(confirm("全データをリセットしますか？")) {
-            localStorage.removeItem('bearHuntDataFinal');
+            localStorage.removeItem('bearHuntDataFinalV2');
             location.reload();
         }
     }
